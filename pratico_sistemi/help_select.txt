@@ -1,0 +1,50 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define BUFFER_SIZE 256
+
+int main() {
+    int fd1, fd2, max_fd, retval;
+    fd_set rfds;
+    char buffer[BUFFER_SIZE + 1];
+
+    // Apriamo due file descriptor (in questo caso, due socket)
+    fd1 = /* ... */;
+    fd2 = /* ... */;
+
+    // Determiniamo il file descriptor con valore maggiore per l'input
+    max_fd = (fd1 > fd2 ? fd1 : fd2) + 1;
+
+    // Inizializziamo l'insieme di file descriptor per la lettura
+    FD_ZERO(&rfds);
+    FD_SET(fd1, &rfds);
+    FD_SET(fd2, &rfds);
+
+    // Impostiamo il timeout a 5 secondi
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    // Attendiamo l'input su uno dei due file descriptor
+    retval = select(max_fd, &rfds, NULL, NULL, &tv);
+    if (retval == -1) {
+        perror("select()");
+        exit(EXIT_FAILURE);
+    } else if (retval == 0) {
+        printf("Timeout scaduto.\n");
+    } else {
+        // Leggiamo l'input dal file descriptor disponibile
+        if (FD_ISSET(fd1, &rfds)) {
+            read(fd1, buffer, BUFFER_SIZE);
+            printf("Input dal fd1: %s\n", buffer);
+        } else if (FD_ISSET(fd2, &rfds)) {
+            read(fd2, buffer, BUFFER_SIZE);
+            printf("Input dal fd2: %s\n", buffer);
+        }
+    }
+
+    return 0;
+}

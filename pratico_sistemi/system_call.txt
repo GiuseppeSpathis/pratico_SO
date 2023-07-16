@@ -1,0 +1,446 @@
+                                                                SYSTEM CALL
+                                                            
+le system call sembrano delle funzioni, ma c'è una differenza fondamentale, le funzioni però fanno operazioni aritmetico-logiche, salvare in memoria roba etc, etc invece la system call semplicemente 
+passa le informazioni dei parametri formali di essa al kernal e fa una trap
+i parametri massimi di una system call sono 6 a 64 bit, sempre le system call ritornano un intero (che può avere diversi significati), se ritornano -1 significa che c'è stato un ERRORE
+Chi decide chi sono le system call e che hanno proprio quei paramtri? ad esempio per essere chiamato un sistema operativo Unix deve rispettare queste due cose
+C'è la variabile Err_number che codifica il tipo di errore di una sistem call
+
+FORK()
+crea un nuovo processo che continua l'esecuzione da dove è stata chiamata la system call fork(), la fork del processo figlio ritorna 0 invece il padre un valore maggiore di zero.
+
+
+int main(){
+    for(;;)
+        fork();             //questo codice non deve mai essere eseguito, rompe la macchina
+}
+
+
+creare un processo e eseguire un programma sono due cose diverse (soprattuto in UNIX)
+
+
+PROGRAMMA CHE LANCIA LS
+
+int main(){
+    char *buf = NULL;
+    size_t len = 0;
+    for(;;){
+        getline(&buf, &len, stdin);
+        size_t cmdlen = strlen(buf) - 1;
+        buf[cmdlen] = 0;
+        char *myargv[]= (buf, 0);
+        int status;
+        switch(fork()){
+            case 0;
+                execve(buf, myargv, NULL);
+                exit(0);
+            default:
+            wait(&status);
+            case -1:
+            exit(1);
+        }
+    }
+}
+
+------------------------------------------------------------------------------------------------------
+SEMAFORI
+    i mutex sono inizializzati a 1
+    i waiting (semafori di sincronizzazione) sono inizializzati a 0
+
+    PASSAGGIO DEL TESTIMONE
+    passaggioo della mutua esclusione, dai la critical section a un altro processo
+------------------------------------------------------------------------------------------------------
+che benefici ci danno le system call rispetto alle chiamate di funzione? ci danno sicurezza perchè alcune cose vengono gestite solo dal kernel, l'utente da solo può fare
+solo operazioni aritmetico logiche usando la memoria che gli è stata concessa, per tutto il resto deve usare le system call, se un processo genera un errore, il sistema
+nella sua interezza non è in pericolo infatti il kernel rileva il problema e uccide il processo.
+
+FUNZIONALITA' GESTITE DALLE SYSTEM CALL
+input/output
+gestione dei processi         (exit, fork)
+accesso alle periferiche
+gestione degli errori         fatto tramite i segnali
+gestione della memoria        (prk, chiedi memoria al kernel)
+gestione file                 (open, write, close)
+gestione file system (astrazione che vi da una gerarchia di directory e file)   (mkdir)
+gestione utenti   
+attesa e eventi             (select pool)
+gestione tempo
+IPC(inter process comunication)
+Networking 
+MISC (miscellaneous)
+
+
+
+
+i comandi tipo ls sono dei programmi che lanciamo, in cui all'interno hanno varie righe di codice fra cui magari pure delle system call
+le system call invece sono delle singole istruzioni
+a ogni system call è associata una costante
+ 
+____________________________________________________________________________________________
+C E LE SYSTEM CALL
+in C c'è la funzione syscall che serve per chiamare una system call generica
+______________________________________________________________________________
+
+EXECVE 
+    rispetto alla fork esegue un programma senza creare un nuovo processo, butta la vecchia memoria, fa il codice e salva il tutto dove prima c'era la vecchia memoria
+    (non ha padre e figlio)
+
+FORK 
+    crei un nuovo processo figlio clone con una memoria separata
+    WAIT
+        aspetti che il processo figlio termini
+
+_EXIT
+    rispetto a exit() che è una funzione di libreria, _exit() prima pulisce la memoria e poi fa uscire il processo in input
+
+getid
+
+getparentid
+
+BRK      (non viene mai usata direttamente)
+    l'utente chiede al kernel più spazio per l' heap
+    all'inizio fai brk() con niente in input e ti da come risultato un indirizzo in esadecimale (ad esempio 0x5545076406) che sarebbe la posizione attuale
+    della memoria dell' heap e poi fai brk(0x5545076406) per aumentare la memoria dell'heap
+
+    la brk viene usata per implementare la malloc e anche in tutte le funzioni in cui si parla di memoria dinamica
+    la brk sposta il punto in cui c'è la memoria legale e quella illegale(quella che se ci accedi fa segmentation fault), sposta il punto di fine dell'heap e quindi aumenta lo 
+    spazio dell'heap
+
+SYSTEM CALL per i FILE
+    OPEN
+    READ
+    WRITE
+    CLOSE
+    system call per i file per i thread
+        PREAD
+        PWRITE
+
+CLONE       (non viene mai usata direttamente, serve ad implementare la libreria pthread)
+
+DUP        dato un file descrittore(txt) crea una copia, un file descriptor è un id che identifica un file 
+    la versione dup() è vecchia, ora si usa dup2()
+    
+    con dup2 puoi cambiare lo standardOutput
+    int fileIn = open(argv[1])
+    dup2(3,1)    //ora se fai una printf ti stampa invece che sullo stdr ma su il file in input(che ha come id fileIn) perchè hai duplicato il file in input nello stdr 
+    dup2(,0)    //cambi lo standardInput
+
+PIPE
+    crea due descrittori collegati tali che lo standardOutput di uno diventa lo standardInput dell'altro
+    int fd[2]
+    pipe(fd)
+
+
+CREAT e OPEN
+la creat è una vecchia system call non usata più, la open apre un file invece la creat crea un file, generalmente si faceva una open e se falliva si chiamava la creat
+creat = open + o_creat | o_trunc | o_wonly
+la creat crea un file aprendolo
+
+MKNOD
+crea un file privo di contenuto senza aprirlo
+
+-------------------------------------------------------------------------
+in linux i device sono considerati file
+
+IOCTL (input/output control)
+    fa tutto quello che non fa una write o read 
+    ad esempio mandare dei segnali a degli strumenti musicali elettronici(ad esempio delle casse)
+    le IOCTL sono veramente molte
+
+FCNTL (file controll)
+    tramite delle flag possiamo vedere se un file è stato aperto in lettura o scrittura
+    potete bloccare parti del file 
+
+il file system è un'astrazione per catalogare file (la catalogazazione serve ad esempio per i permessi di accesso)
+      open()
+FILE --------> FILE SYSTEM
+la open restituisce il file descriptor che serve a fare operazioni sui file
+______________________________________________________________________________
+IN Unix il file system è un albero(in realtà è un grafo diretto aciclico), un unico albero che permette di accedere a tutte le risorse raggiungibili
+alla radice ci sono delle directory specifiche
+L'Inode è un numero associato a ogni nodo dell'albero quindi a ogni file     
+
+
+                /bin         /eb       /etc            /var         /home                     / usr
+                                                                /giuseppe                /bin   /lib   /local
+                                                                                                   /bin /lib
+                  
+la user spesso è condivisa fra più macchine così se installo roba, faccio aggiornamenti il tutto si fa fra tutte le macchine, quello sotto local invece viene gestito solo
+dalla propria macchina
+
+______________________________________________________________________________
+SYSTEM CALL per il FILE SYSTEM
+
+STAT
+    ti da informazioni sul file
+    restituisce una struttura stat che contiene{
+        id del file 
+        numero Inode
+        file type and mode              //è scritto in ottale ad esempio 104755 10 sono i bit che indicano il tipo di file, 4755(il mode, i permessi) sono 4(3 bit) i permessi speciali e 755(9 bit) i permessi normali
+        number of hard links
+        user id 
+        group id
+        device id (se è un file speciale)
+        total size
+        block size for filesystem I/O                   
+        number of 512 byte blocks allocated           //i blocchi vanno a multipli di 8
+    }
+FSTAT
+    uguale di stat ma al posto del file path metti il file descriptor
+______________________________________________________________________________
+LINK FRA FILE UNIX
+link simboli
+    non è nient'altro che un file che rappresenta un un file path
+    è un file che punta a un altro file
+    comando linux:
+        ln -s /etc/hostname mionome
+        mionome è un puntatore a /etc/hostname
+SYSTEM CALL PER I LINK 
+    il comando ln usa la system call LINK
+    il comando ln - s usa la system call symlink 
+
+SYSTEM CALL CON PREFISSO L, F E SENZA
+    senza:
+        si riferisce al file puntato dal file puntatore
+    con l:
+        si riferisce al file puntatore
+    con f:
+        usi il file descriptor(serve per file già aperti)
+
+______________________________________________________________________________
+In Unix il nome del file non è un attributo del file
+nella stessa directory o in directory diverse potremmo avere nomi diversi per lo stesso file
+
+un file cessa di esistere quando non esiste più nessun nome associato e non c'è nessun processo che l'ha aperto in quel momento
+se apri un file con un processo e nel mentre elimini il file, il file continua a esistere ma non è più raggiungibile
+e, chiuso il processo, il file viene eliminato
+Su Linux quando elimiamo un file, la memoria che era allocata a quel file viene riciclata, quindi una volta eliminato un file, non può più essere recuperato
+
+______________________________________________________________________________
+RENAME
+    cambia il nome del file in maniera atomica
+    sarebbe equivalente a fare il link fra il vecchio nome del file e il nuovo nome del file e poi eliminare il vecchio nome
+
+PERMESSI DI ACCESSO AI FILE
+    sono di 9 bit (in realtà sono 12, i primi 3 bit servono a cose specifiche il primo è setuid(set user id) e se lo metti a 1(si vede una s) se un processo apre il file lo apre come se fosse l'utente proprietario,
+                   se un file ha s cioè ha il bit a 1 quando lo apri, lo apri sempre come root, il secondo ...)
+    lrx l-x l-x questa scrittura significa:
+        il proprietario può leggere, scrivere e eseguire, gruppo del proprietario può leggere e eseguire e il resto del mondo può leggere e eseguire
+    col comando ls -dl .
+        fa vedere i permessi della cartella corrente
+COMANDI PER CAMBIARE I PERMESSI
+    chmod o-r lst1.c
+        o sta per address - significa togli e r significa scrittura e poi il file
+    chmod 600 lst1.c 
+        versione semplice scrivere in numero ottale(600 sarebbero 9 bit) e se accendi quel bit significa che c'è il permesso
+    Umask 
+        serve a fare in modo che non ci siano file creati(file di default) nel momento con troppi permessi(poi ovviamente uno può cambiarli i permessi)
+        umask 0 
+            significa che metto che non ci sono vincoli quindi se creo un nuovo file lo posso creare con tutti i permessi che voglio
+            umask 077
+                i file creati non hanno alcun permesso per i gruppi e per gli altri            
+        il comando corrispettivo alla system call umask si chiama pure umask    
+CHDIR(change directory) 
+    cambia la directory del processo
+    getcwd() funzione che ti da la working directory
+    talvolta ti può servire andare temporaneamente in un'altra directory e poi tornare indietro, possiamo aprire una directory come se fosse un file(serve ad esempio per implementare ls), e così diamo
+    un file descriptor a una directory
+
+PATH ASSOLUTI E RELATIVI
+    C:\Users\giuse        questo è un path assoluto
+    giuse\.eclipse        questo è un path relativo
+______________________________________________________________________________
+SYSTEM CALL CHE FINISCONO CON AT
+    sono estensioni di altre system call senza at(ad esempio rename e renameat)
+    queste system call hanno un parametro in più per path, che è il file descriptor
+
+    OPENAT vs OPEN
+        se metti un path assoluto sono la stessa cosa se invece metti un path relativo, la openat apre file nel path con quel file descriptor
+
+______________________________________________________________________________
+DIRECTORY
+    sono file speciali di coppie nome-Inode
+    permessi delle directory 
+        esempio directory tmp(directory in cui vengono messi tutti i file temporanei di ogni utente)
+            drwxrwxrwt  d indica che è una directory, t sarebbe il permesso che serve a fare che se tu provi ad eliminare un file di un altro utente non te lo fa fare(però il root può tutto)
+    
+    COME CREARE LS
+        getdents(get directory entries)          //non viene quasi mai usata perchè ci sono funzioni della libreria C molto più comode
+            come parametri vuole un buffer e la sua lunghezza e mette tutte le entri che può mettere
+            esempio:
+            
+_____________________________________________________________________________________________________________
+Nel sistema un processo ha una struttura dati che tiene tutti i dati del processo(PCB), fra le info del processo ci sono i file aperti(un vettore in cui a ogni numero file descriptor è associato un file aperto tramite
+un puntatore che punta alla tabella dei file aperti e c'è l'offset cioè la posizione attuale nel file (sarebbe tipo del cursore nel file), e poi questa tabella è collegata a V node che sarebbe una tabella
+dove ci sono varie info del file tipo la lunghezza)
+Se ho due processi che aprono lo stesso file(con magari anche due fd) ci saranno due entri diverse nella tabella dei file aperte e quindi se io faccio una read e arrivo a riga 100 nell'altro processo si 
+parte da 0 e non da 100,  però il V node è in comune
+Un V Node è un INode con più info, solo quando si fa la close si salva su disco ciò che hai cambiato nel vNode, se fai una fork e hai un processo figlio e padre hai l'offset condiviso
+he Open system call creates an entry in the Open file table when a process opens a file. If the file is opened again by some other process (or the same process), the Open system call a new entry
+ is created in the open file table. The first field (Inode Index) of the Open file table entry for a file is set to the index of the Inode Table entry for the file.
+
+ ___________________________________________________________________________________________________________________________________
+ UTENTI
+    ogni processo quando lo lanciate appartiene a 3 utenti e gruppi
+    esempio:
+        Uid: 1007(reale) 1007(effettivo) 1007(salvato) 1007(solo per linux) 
+        Gid: 1007 1007 1007 1007                                                  id dei gruppi
+            per vedere se qualcosa si può fare o non si può fare quello che conta è quello EFFETTIVO, cioè quello che produce effetto
+            reale sarebbe quello vero ad esempio se devi vedere qual'è l'utente del file
+            The distinction between a real and an effective user id is made because you may have the need to temporarily take another user's identity (most of the time, that would be root, 
+            but it could be any user). If you only had one user id, then there would be no way of changing back to your original user id afterwards, così usi il saved id per tornare indietro al tuo vecchio id
+            dopo esserti trasformato in root
+        la tabella dei valori si può cambiare in due modi: root oppure un utente può cambiare l'utente effettivo se lancia delle system call della gestione utenti
+
+    SYSTEM CALL GESTIONE UTENTE
+        getresuid                  ti ritorna uid reale, effettivo, salvato
+        getres_set 
+
+MMAP
+    serve a poter accedere a grandi file gestendoli come se fossero degli indirizzi di memoria
+    
+    char *mapped = mmap(NULL, lunghezza_file, PROT_READ, MAP_SHARED, 0, fd, 0(sarebbe l'offset, cioè potremmo incominciare già da un punto del file))
+    
+    ora la stringa mapped contiene tutto il contenuto del file, quindi anche se chiudo il file con una close() comunque continua ad esistere in mapped
+    quindi mapped serve ad avere 
+
+    serve ad esempio per avere codice di librerie in memoria
+    fin quando non si accede alla stringa essa non esiste in memoria, viene creata solo in quel momento, e poi magari in futuro il sistema operativo elimina quella stringa dalla memoria e se poi 
+    tenti a riaccederci la ricrea.
+    le librerie dinamiche usano la mmap ad esempio quando usi la printf viene fatta una mmap in cui si carica in memoria della libreria C solo quel pezzo di codice
+
+PROGRAMMAZIONE A EVENTI
+problemma: vogliamo contemporaneamente fare la read dal terminale e il file in input e scrivere su file output e terminale
+vogliamo creare una chat in cui apri un terminale e ci scrivi e quello che scrivi appare sull'alto terminale
+    POLL   
+        char buff[128];
+        struct pollfd pfd[] = {{STDIN_FILENO, POLLIN, 0},  //POLLIN è il tipo di evento
+            {fin, POLLIN, 0}};
+        for(;;){
+            int nev = poll(pfd, 2, -1) //-1 significa aspetto l'evento in maniera indefinita, la poll si blocca quando uno dei due eventi si avvera
+            if(pollfd[0].revents & POLLIN){  //revents sono gli eventi successi
+                int n=read(STDIN_FILENO, buf, 128);
+                write(fout, buf, n);
+                }
+            if(pollfd[1].revents & POLLIN){  //revents sono gli eventi successi
+                int n=read(STDIN_FILENO, buf, 128);
+                write(STDIN_FILENO, buf, n);
+                }
+        }
+    PPOLL
+        puoi aspettare che avvengono aventi anche dei segnali
+    EPOLL
+
+    LA POLL E' MOLTO PIU' COMODA E PRATICA DELLA SELECT, LA SELECT E' VECCHIA
+    
+    SELECT
+        char buff[128];
+        fd_set rset;                        //l'insieme dei descrittori che volete leggere
+        FD_ZERO(&rset);
+        FD_SET(STDIN_FILENO, rset);         //inserire in rset lo standardInput
+        FD_SET(fin, &rset);
+
+        int nev = select(fin + 1, &rset, NULL, NULL, NULL)      //il primo parametro è il numero dei file che hai inserito nell'insieme rset + 1
+    
+        if(FD_ISSET(STDIN_FILENO, &rset)){  //revents sono gli eventi successi
+            int n=read(STDIN_FILENO, buf, 128);
+            write(fout, buf, n);
+            }
+        if(FD_ISSET(fin, &rset)){  //revents sono gli eventi successi
+            int n=read(fin, buf, 128);
+            write(STDIN_FILENO, buf, n);
+            }
+
+SEGNALI
+    i segnali non portano valore, sono solo una sincronizzazione
+    SIGNAL    (molto simile a una interrupt)
+        scegliamo alla signal una funzione, facciamo la chiamata signal, appena arriva un segnale, il processo sospende quello che stava facendo e fa la funzione che avevamo detto da fare nella signal
+        segnali possibili tranne qualcuno quasi tutti sono predefiniti dal sistema:
+            SIGINT (è il segnale che arriva quando facciamo ctrl + c da tastiera)
+                il comportamento standard è di chiudere il processo
+            SIGSEGV   sarebbe il segmentation fault
+                invalid memory reference
+            SIGCHLD     
+                è il segnale inviato quando un processo figlio termina
+            SIGKILL 
+                killa il segnale
+        tutti i segnali sono personalizzabii tranne SIGKILL cioè signal(SIGCHLD, myfunction)   ora quando gli arriverà un segnali SIGCHLD farà la mia funzione myfunction
+
+        FORK per quanto riguarda i SEGNALI
+            cosa il figlio non eredita:
+                valore di ritorno di fork
+        EXEC per quanto riguarda i SEGNALI
+            cosa eredita dal padre:
+                process ID e parent process ID
+                real uid e real gid 
+                supplementary gid
+                process group id
+                terminale di controllo
+                current working directory
+                root directory
+                maschera creazione file
+                segnali in attesa
+                maschera dei segnali
+            cosa non viene ereditato:
+                il codice della myfunction di una signal personalizzata
+            cosa succese ai file aperti?
+                se la flag close-and-exec è True li chiude
+    SIGACTION   
+        una signal più personalizzata
+        int sigaction(int signumber, const struct sigaction *act, struct sigaction *oldact);
+        oldact serve ad esempio se a un certo punto vogliamo tornare al vecchio sigaction 
+            struct sigaction{
+                void (*sa_handler)(int)     handler sarebbe il gestore delle interruzioni
+                void (*sa_sigcation)(int, siginf_t *, void *)
+                sigset_t sa_mask    insieme di segnali che è una maschera che sarebbero i segnali da ignorare o comunque crea una priorità di segnali come la priorità degli interrupt
+                int sa_flags
+            }
+            siginfo_t{   contiene varie informazioni del processo che ti invia i segnali
+                int si_signa    signal number
+                ...
+            }
+        processo permaloso che quando gli mandi un segnale ti uccide:
+
+            void action(int num, siginfo_t *info, void *opaque){
+                kill(info->si_pid, 9);
+            }
+            
+            int main(int argc, char *argv[]){
+                struct sigaction sa = {    se in c non inizializiamo dei campi di una struct essi sono azzerati
+                    .sa_sigcation = action,
+                    .sa_flags = SA_SIGINFO
+                };
+                for(int i=0; i<_NSIG; i++){     _NSIG è il numero dei segnali
+                    sigaction(i, &sa, null);
+                }
+                FOR(;;){
+                    pause();  //pause mette in pausa fino a quando non arriva un segnale, la cosa buona è che non fa lavorare la CPU, non fa busy wait
+                }
+            }
+
+SHMOPEN           shell memory
+    fornisce una memoria condivisa fra più processi
+EVENTFD
+    creates an "eventfd object" that can be used as an
+       event wait/notify mechanism by user-space applications, and by
+       the kernel to notify user-space applications of events.  The
+       object contains an unsigned 64-bit integer (uint64_t) counter
+       that is maintained by the kernel.  This counter is initialized
+       with the value specified in the argument initval.
+
+       As its return value, eventfd() returns a new file descriptor that
+       can be used to refer to the eventfd object.
+
+       The following values may be bitwise ORed in flags to change the
+       behavior of eventfd():
+        EFD_SEMAPHORE (since Linux 2.6.30)
+              Provide semaphore-like semantics for reads from the new
+              file descriptor.  See below.
+
+              con EFD_SEMAPHORE ti abilita la possibilita di usare i semafori
+                eventfd(0, EFD_SEMAPHORE)
+FTRUNCATE
+
+INOTIFY      
+    chiede al kernel di essere informato se succedono certe cose nel file system
+    ad esempio un processo cambia roba in memoria e tu vieni notificato

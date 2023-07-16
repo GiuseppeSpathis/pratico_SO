@@ -1,0 +1,142 @@
+ESERCIZI C
+usare libreria string.h
+
+il comando shell strace [programma] dice quali system call il programma usa e ci serve per fare debugging
+
+
+getpid() ritorna il pid del processo
+getppid() ritorna il pid del processo padre
+fork() crea due thread (padre e figlio) e ritorna 0 se sei il figlio e il pid del processo figlio se sei il padre, alla fine del ramo del figlio devi 
+       sempre fare la _exit(), a caso si esegue il codice il codice del figlio o del padre (c'e' race condition)
+_exit(0) fa chiudere il processo al thread che lo esegue e ritorna 0 
+wait(*status) aspetta che un figlio termini e ritorna il pid del figlio e mette in status lo status del figlio (tipo il valore di ritorno della sua exit se usi la macro WEXITSTATUS(status))
+waitpid(pid, *status, *options) aspetta il figlio col certo pid
+sleep(5) sospendere l'esecuzione del processo per 5 secondi
+execve("/bin/ls", myargv, NULL);  prende il path relativo o assoluto del processo da lanciare, l'argv del nuovo processo e l'ambiente dove verra' lanciato (in questo caso NULL
+                                  significa che usa l'env del padre) e sostituisce il processo corrente col nuovo processo(in realta' il processo rimane lo stesso, lo stesso
+                                  processo esegue il nuovo codice), se volevamo lanciare un processo nella stessa cartella, bastava mettere il path "./nomeNuovoProcesso"
+
+FILE SYSTEM
+    getcwd(char * buff, size) questa funzione prende un array buff e la sua dimensione e ritorna il path assoluto della current directory, se buff e' NULL non legge size 
+    int value = mkdir("/Desktop/NomeNuovaCartella", S_IRUSR | S_IRGRP | S_IROTH) value ritorna 0 se e' andato tutto bene, -1 se c'e' stato un errore
+                                                                                 come permessi ho messo lettura per user,group,other
+        lista dei permessi:
+            S_IRUSR setta lettura per user
+            S_IWUSR
+            S_IXUSR
+
+            S_IRGRP
+            S_IWGRP setta scrittura per gruppo
+            S_IXGRP
+
+            S_IROTH
+            S_IWOTH
+            S_IXOTH setta esecuzione per other
+    mode_t old_umask = umask(S_IWGRP | S_IWOTH); umask ritorna la vecchia umask e in questo caso la umask viene aggiornata e settata 000010010 quindi i nuovi file creati
+                                                 non avranno permessi di write per gruppo e other di default (i bit accesi nella umask sono bit spenti nei permessi del file) 
+    int value = link("./pippo.txt", "./mylink.txt") ritorna 0 se e' stato creato con successo, -1 se no 
+    int value = symlink("./pippo.txt", "./mylink.txt") ritorna 0 se e' stato creato con successo, -1 se no 
+    chown("./test.c", 1100, 100) cambia l'id del user owner a 1100 e group owner a 100, i due id devono esistere, 0 e' l'id di root
+    chmod("./NomeFile", permessi) per i permessi vedere "lista dei permessi"
+    truncate("./NomeFile", dimensione) serve a ridurre o ampliare la dimensione in byte del file
+    read(fdInput, buff, buff_size) se tu hai un file con dentro la parola ciao e un buffer che puo contenere solo due lettere, alla
+                                   prima iterazione di read avrai nel buffer ci, se fai una seconda volta la read ci sara' ao
+    lseek(fdInput, 2,SEEK_SET) SEEK_SET significa che conta l'offset dall'inizio del file e gli ho messo offset 2 byte quindi se faro'
+                               ad esempio una read mi fara' partire dal byte del 3,la lseek puo essere fatta pure nel file in Output per la write
+    int STDOUT_FILEN0 = dup2(fd1, STDOUT_FILEN0) sostanzialmente duplica fd1 e assegna la copia a STDOUT_FILEN0 quindi STDOUT_FILEN0 diventa fd1 e restituisce STDOUT_FILEN0
+                                                 in questo caso se fai un printf stampi invece sul file fd1
+    pipe(pipefd[2]) la pipe crea un collegamento in maniera tale che tutto cio' che scrivi in pipefd[1] puo essere letto da pipefd[0]
+                    serve a scambiare informazioni fra padre e figlio nella fork, la pipe scambia informazioni solo fra padre e figlio(non fra due processi a caso)
+                    la pipe vediamola come un tubo, tutto quello che scrivo in pipefd[1] passa a pipefd[0]
+                    la pipe viene usata con dup2 per creare comandi | tipo ls | sort
+    mknod("myfifo", S_IFIFO | 0666, 0); named pipe o fifo viene usata per scambiare informazioni fra processi che non hanno rapporti di parentela, per scambiare le info basta aprire 
+                                        il file in scrittura o lettura in base al processo
+    opendir, readdir, closedir vedere test1.c
+    inotify  serve a monitorare una directory e dirti se ad esempio viene creato o modificato un file nella directory, vedere dircat.c
+DEVICE FILE
+    mknod("devBlocchi", S_IFBLK | 0777, makedev(1, 3) per creare il device a caratteri usare S_IFCHR, servono i permessi di root
+    ioctl(..) serve a ottenere informazioni sul device, tipo il modello
+MULTIUTENTI
+    setuid() setta l'user id salvato
+    seteuid() setta l'user id effettivo
+    getgroups() dice a quali gruppi appartiene l'utente che lancia questa system call 
+            int size = getgroups(0, NULL);  //ritorna il numero dei gruppi
+            gid_t gid_list[size];
+            getgroups(size, gid_list);  //ottieni i gruppi
+            struct group *g = getgrgid(gid_list[i]) //ottieni info aggiuntive sui gruppi, tipo g->gr_name
+
+    setgroups() setta l'insieme dei gruppi al quale l'utente appartiene
+EVENTI
+    select() poco usata, si usa la posto la poll(), si usa se ad esempio hai piu' file descriptor associati a piu' file e ti serve creare un meccanismo che se ti arriva l'input da un file allora fai qualcosa 
+    poll()
+SEGNALI
+    a ogni segnale (ad esempio divisione per zero) e' associato un handler che puo' essere modificato con signal7
+    i segnali sono 32 e vanno da 0 a 31
+
+    kill(curr_processid, SIGINT) manda il segnale SIGINT al processo con quel pid
+    signal(SIGINT, sigint_handler); modifica la gestione del segnale SIGINT con la funzione che gli passi sigint_handler
+        
+        void sigint_handler(int sig) {
+        printf("Ricevuto il segnale SIGINT (%d)\n", sig);
+        printf("PRRR \n");
+        }
+    sigaction(...) come signal ma un po' piu' complessa, vedere test_segnali.c
+        SET SEGNALI
+            sigemptyset(&se) inizializza se a un set di segnali vuoto
+            sigfillset(&sf) inizializza sf a un set di segnali completamente pieno
+            sigaddset(&se, [SEGNALE]) aggiunge al set di segnali se il segnale passato come parametro
+            sigismember(i,set) ritorna true se il segnale i e' presente nel set set
+    pause() sospende il processo fin quando non gli arriva un segnale
+    sigsuspend(&mask) aspettiamo finche' non ci arriva un segnale presente dentro il set di segnali della mask
+
+    come capire quale processo ci ha inviato un segnale, vedere processo_permaloso.c 
+VARIE 
+    per cercare un processo fra i processi in esecuzione, basta usare il comando ps ax | grep [nome_processo] .
+
+    differenze fra syscall normale, versione l, versione f,versione at, la syscall normale prende il nome di un file, la versione l considera
+    i link simbolici non risolvendoli e quindi trasformandoli nel file puntato ma lasciandoli come file assestanti, la versione f
+    invece di prendere il nome di un file, prende il suo file descriptor, la versione at serve per la concorrenza ad esempio openat, in questo 
+    caso nelle at gli dici tu quale directory considerare come current working directory
+
+    per invocare delle system call da root basta fare il comando sudo ./NomeFIle
+
+    chmod 4755 [file] accende il bit s (che si mette al posto di x), se il bit "s" è impostato sul bit di esecuzione del proprietario
+    (rwx), allora il file eseguibile viene eseguito con i diritti di accesso del proprietario del file. Se il bit "s" è impostato 
+    sul bit di esecuzione del gruppo (rwx), allora il file eseguibile viene eseguito con i diritti di accesso del gruppo proprietario
+    del file, per spegnere il bit s si usa chmod u-s [file]
+    file descriptor 0,1,2 sono rispettivamente standard input, output e error
+    lo standard input fd 0, lo standard output 1 e anche lo standard error 2 sono uguali per tutte le shell quindi se ho tre shell aperte e scrivo
+    sullo standard output esso scrivera' su tutte le shell
+
+    write(fileOutput,"\n", 1); serve ad andare a capo se stai scrivendo in un file in output
+
+    sprintf(path, "%s%s%s", pathdirectory, "/", nomeFIle); // Concatena le tre stringhe   serve a creare path per file
+LIBRERIE
+    #include <sys/types.h> serve per avere il tipo pid_t 
+    #include <sys/wait.h> include la wait
+    #include <unistd.h> include la fork, execve, getpid e relative, _exit, sleep, getcwd, link e symlink
+    #include <sys/stat.h> include mkdir, struct stat, 
+    #include <fcntl.h> open, read, e tutte queste qua
+
+
+
+MAN 
+    per alcune directory speciali tipo /proc puoi usare il man, man proc in questo caso 
+
+
+ESERCIZI PYTHON
+    se ci sono esercizi dove bisogna navigare directory e subdirectory conviene usare os.walk()
+usare librerie:
+Subprocess per il multithreading
+Os per girare tra file e directory
+Sys per gli argomenti
+
+https://glacier-shrew-efc.notion.site/Sistemi-operativi-f073b17b59ce4ef8957574f3e6e40075
+andare su altro/toggle
+
+
+
+COMANDI SHELL
+ln pippo.txt mylink.txt     crea un hard link, sostanzialmente crea un nuovo file chiamato mylink.txt nella stessa cartella che sarebbero 
+                            due file che condividono lo stesso inode e incrementa il counter di nomi associati al file
+ln -s pippo.txt mylink.txt  crea un symbolic link, quindi mylink.txt ha il path assoluto di pippo.txt (se apri mylink.txt ti apre pippo.txt)
