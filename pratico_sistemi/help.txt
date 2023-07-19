@@ -142,6 +142,15 @@ VARIE
         }
         printf("\n");
 
+     EXECVP
+        char **myargv = NULL;
+            for(int i=0; i<argc - 1; i++){
+                myargv = realloc(myargv, i * sizeof(char*));
+                myargv[i] = argv[i+1];
+            }
+            myargv[argc-1] = NULL;
+            execvp(myargv[0], myargv);
+
       STILE DI PROGRAMMAZIONE
         exit(EXIT_SUCCESS); quando finisce il programma con successo
         exit(EXIT_FAILURE); quando ci sono errori
