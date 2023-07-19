@@ -68,7 +68,7 @@ MULTIUTENTI
     setgroups() setta l'insieme dei gruppi al quale l'utente appartiene
 EVENTI
     select() poco usata, si usa la posto la poll(), si usa se ad esempio hai piu' file descriptor associati a piu' file e ti serve creare un meccanismo che se ti arriva l'input da un file allora fai qualcosa 
-    poll()
+    poll() la poll serve a monitorare dei file descriptor(tipo vedi quando qualcuno scrive su quel file, vieni notificato, con POLLIN)
 SEGNALI
     a ogni segnale (ad esempio divisione per zero) e' associato un handler che puo' essere modificato con signal7
     i segnali sono 32 e vanno da 0 a 31
@@ -90,6 +90,17 @@ SEGNALI
     sigsuspend(&mask) aspettiamo finche' non ci arriva un segnale presente dentro il set di segnali della mask
 
     come capire quale processo ci ha inviato un segnale, vedere processo_permaloso.c 
+STRINGHE
+    char * result = strstr(buff, "ciao")   cerca ciao in buff e ritorna ciao se trova la stringa, NULL all'opposot
+    
+    strlen() calcola la lunghezza di una stringa
+
+    DIVIDERE STRINGA IN SOTTOSTRINGHE DELIMITATE DA  " "
+        char *token = strtok(buf, " ");
+        while (token != NULL) {
+            token = strtok(NULL, " ");
+        }
+
 VARIE 
     per cercare un processo fra i processi in esecuzione, basta usare il comando ps ax | grep [nome_processo] .
 
@@ -111,6 +122,34 @@ VARIE
     write(fileOutput,"\n", 1); serve ad andare a capo se stai scrivendo in un file in output
 
     sprintf(path, "%s%s%s", pathdirectory, "/", nomeFIle); // Concatena le tre stringhe   serve a creare path per file
+
+    read un file  (mantiene gli spazi e andate a capo nel file in output)
+        int n_byte_letti;
+        char * buff = malloc(buff_size);
+        while ((n_byte_letti = read(fdInput, buff, buff_size)) > 0)
+        {
+            printf("byte copiati = %d \n", n_byte_letti);
+            write(fdOutput, buff, n_byte_letti);
+        }
+        free(buff);
+
+    printare argv
+        // Stampa gli argomenti del comando
+        printf("Argv: ");
+        while (*argv != NULL) {
+            printf("%s ", *argv);
+            argv++;
+        }
+        printf("\n");
+
+      STILE DI PROGRAMMAZIONE
+        exit(EXIT_SUCCESS); quando finisce il programma con successo
+        exit(EXIT_FAILURE); quando ci sono errori
+
+        if(argc!=2){        //fai vari controlli, tipo nell'argv se lo richiede il programma 
+        exit(EXIT_FAILURE);
+        }  
+
 LIBRERIE
     #include <sys/types.h> serve per avere il tipo pid_t 
     #include <sys/wait.h> include la wait
@@ -134,6 +173,14 @@ Sys per gli argomenti
 https://glacier-shrew-efc.notion.site/Sistemi-operativi-f073b17b59ce4ef8957574f3e6e40075
 andare su altro/toggle
 
+SCASIONARE DIRECTORY
+    VA IN MANIERA RICORSIVA PURE NELLE SOTTODIRECTORY
+        for root, dirs, files in os.walk(dir_path):
+        
+    SE VOGLIO SCANSIONARE SOLO LA DIRECTORY CORRENTE
+        for root, dirs, files in os.walk(dir_path, topdown=True):
+            # Imposta topdown=True per evitare la scansione ricorsiva delle sottodirectory
+            dirs.clear() 
 
 
 COMANDI SHELL
